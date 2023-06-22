@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using System;
 using System.Linq;
+using UnityEditor;
 
 namespace Mixture
 {
@@ -14,12 +15,31 @@ namespace Mixture
         public List<MixtureGraph> realtimeGraphs = new List<MixtureGraph>();
         public List<MixtureGraph> staticGraphs = new List<MixtureGraph>();
 
-        Dictionary<Texture, MixtureGraph> graphMap = new Dictionary<Texture, MixtureGraph>();
+        private static Dictionary<Texture, MixtureGraph> graphMap = new Dictionary<Texture, MixtureGraph>();
 
-// The mixture database is only available in build. In the editor we have directly load the graph with AssetDatabase (which is safer).
-#if !UNITY_EDITOR
         void OnEnable()
         {
+            GetGraphMap();  
+        }
+
+        private static void GetGraphMap()
+        {
+            // The mixture database is only available in build. In the editor we have directly load the graph with AssetDatabase (which is safer).
+#if UNITY_EDITOR
+            string[] guids = AssetDatabase.FindAssets("t:Texture2D");
+            foreach (var id in guids)
+            {
+                string assetPath = AssetDatabase.GUIDToAssetPath(id);
+                Texture2D tex = AssetDatabase.LoadAssetAtPath<Texture2D>(assetPath);
+                MixtureGraph graph = GetGraphFromTexture(tex);
+
+                if (graph != null)
+                {
+                    graphMap.Add(tex,graph);
+                }
+            }
+#else
+
             foreach (var graph in realtimeGraphs)
                 AddGraph(graph);
             foreach (var graph in staticGraphs)
@@ -30,8 +50,18 @@ namespace Mixture
                 foreach (var outputTexture in graph.outputTextures)
                     graphMap[outputTexture] = graph;
             }
-        }
 #endif
+        }
+
+        public static Dictionary<Texture, MixtureGraph> GetAllGraphs()
+        {
+            if (graphMap.Count == 0)
+            {
+                GetGraphMap();
+            }
+
+            return graphMap;
+        }
 
         /// <summary>
         /// Get the graph from the mixture
